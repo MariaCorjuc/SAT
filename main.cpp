@@ -4,263 +4,292 @@
 #include <chrono>
 #include <iomanip>
 using namespace std;
-using namespace std::chrono;
 
-const int MAX_CLAUZE = 300;
-const int MAX_LITERALI = 300;
+const int MAX_TOTAL_CLAUZE = 300;
+const int MAX_LITERAL_PER_CLAUZA = 300;
 
-struct Clauza {
-    int literalii[MAX_LITERALI];
-    int nr_literali;
-};
+int genereazaLiteral(int valoareMaxima)
+{
+    int literal;
+    do
+    {
+        literal = (rand() % (2 * valoareMaxima + 1)) - valoareMaxima;
+    }
+    while (literal == 0);
+    return literal;
+}
 
-bool existaDeja(Clauza &clauza, int literal) {
-    for (int i = 0; i < clauza.nr_literali; ++i) {
-        if (clauza.literalii[i] == literal) return true;
+bool esteValid(int literal, int clauza[], int nrLiterali)
+{
+    for (int i = 0; i < nrLiterali; i++)
+    {
+        if (clauza[i] == literal || clauza[i] == -literal)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+void genereazaClauza(int clauza[], int& nrLiterali, int valoareMaxima, int dimensiuneMaximaClauza)
+{
+    nrLiterali = rand() % dimensiuneMaximaClauza + 1;
+    if (nrLiterali > MAX_LITERAL_PER_CLAUZA)
+    {
+        nrLiterali = MAX_LITERAL_PER_CLAUZA;
+    }
+
+    for (int j = 0; j < nrLiterali; j++)
+    {
+        int incercari = 0;
+        int literal;
+        do
+        {
+            literal = genereazaLiteral(valoareMaxima);
+            incercari++;
+            if (incercari > 100)
+            {
+                nrLiterali = j;
+                return;
+            }
+        }
+        while (!esteValid(literal, clauza, j));
+        clauza[j] = literal;
+    }
+}
+
+bool contineLiteral(int clauza[], int nr, int literal)
+{
+    for (int i = 0; i < nr; i++)
+    {
+        if (clauza[i] == literal)
+            return true;
     }
     return false;
 }
 
-bool areComplementul(const Clauza &clauza, int literal) {
-    for (int i = 0; i < clauza.nr_literali; ++i) {
-        if (clauza.literalii[i] == -literal) return true;
-    }
-    return false;
+int eliminaLiteral(int clauza[], int& nr, int literal)
+{
+    int clauzaNoua[MAX_LITERAL_PER_CLAUZA];
+    int k = 0;
+    for (int i = 0; i < nr; i++)
+        if (clauza[i] != literal)
+            clauzaNoua[k++] = clauza[i];
+    for (int i = 0; i < k; i++) clauza[i] = clauzaNoua[i];
+    nr = k;
+    return k;
 }
 
-void genereazaClauzeAleatoare(Clauza clauze[], int &nr_clauze, int max_literali, int nr_clauze_input) {
+bool esteClauzaUnitara(int clauza[], int nr)
+{
+    return nr == 1;
+}
+
+bool esteLiteralPur(int literal, int clauze[][MAX_LITERAL_PER_CLAUZA], int nrLiterali[], int total)
+{
+    bool gasitPozitiv = false, gasitNegativ = false;
+    for (int i = 0; i < total; i++)
+    {
+        for (int j = 0; j < nrLiterali[i]; j++)
+        {
+            if (clauze[i][j] == literal)
+                gasitPozitiv = true;
+            if (clauze[i][j] == -literal)
+                gasitNegativ = true;
+            if (gasitPozitiv && gasitNegativ)
+                return false;
+        }
+    }
+    return true;
+}
+
+bool dpll(int clauze[][MAX_LITERAL_PER_CLAUZA], int nrLiterali[], int total, int valoareMaxima)
+{
+    bool gasitUnitara;
+    do
+    {
+        gasitUnitara = false;
+        for (int i = 0; i < total; i++)
+        {
+            if (nrLiterali[i] == 1)
+            {
+                int literalUnit = clauze[i][0];
+                gasitUnitara = true;
+
+                for (int j = 0; j < total; j++)
+                {
+                    if (nrLiterali[j] >= 0 && contineLiteral(clauze[j], nrLiterali[j], literalUnit))
+                    {
+                        nrLiterali[j] = -1;
+                    }
+                }
+
+                for (int j = 0; j < total; j++)
+                {
+                    if (nrLiterali[j] > 0 && contineLiteral(clauze[j], nrLiterali[j], -literalUnit))
+                    {
+                        eliminaLiteral(clauze[j], nrLiterali[j], -literalUnit);
+                        if (nrLiterali[j] == 0)
+                        {
+                            return false;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+    while (gasitUnitara);
+
+    for (int literal = 1; literal <= valoareMaxima; literal++)
+    {
+        if (esteLiteralPur(literal, clauze, nrLiterali, total))
+        {
+            for (int i = 0; i < total; i++)
+            {
+                if (nrLiterali[i] >= 0 && contineLiteral(clauze[i], nrLiterali[i], literal))
+                {
+                    nrLiterali[i] = -1;
+                }
+            }
+        }
+        if (esteLiteralPur(-literal, clauze, nrLiterali, total))
+        {
+            for (int i = 0; i < total; i++)
+            {
+                if (nrLiterali[i] >= 0 && contineLiteral(clauze[i], nrLiterali[i], -literal))
+                {
+                    nrLiterali[i] = -1;
+                }
+            }
+        }
+    }
+
+    bool toateEliminate = true;
+    for (int i = 0; i < total; i++)
+    {
+        if (nrLiterali[i] >= 0)
+        {
+            toateEliminate = false;
+            break;
+        }
+    }
+    if (toateEliminate)
+    {
+        return true;
+    }
+
+    for (int i = 0; i < total; i++)
+    {
+        if (nrLiterali[i] == 0)
+        {
+            return false;
+        }
+    }
+
+    int literalAles = 0;
+    for (int i = 0; i < total && literalAles == 0; i++)
+    {
+        if (nrLiterali[i] > 0)
+        {
+            literalAles = clauze[i][0];
+        }
+    }
+
+    int clauzeTemp1[MAX_TOTAL_CLAUZE][MAX_LITERAL_PER_CLAUZA];
+    int nrLiteraliTemp1[MAX_TOTAL_CLAUZE];
+    int totalNou1 = 0;
+    for (int i = 0; i < total; i++)
+    {
+        if (nrLiterali[i] == -1) continue;
+        if (contineLiteral(clauze[i], nrLiterali[i], literalAles)) continue;
+        nrLiteraliTemp1[totalNou1] = nrLiterali[i];
+        for (int j = 0; j < nrLiterali[i]; j++)
+        {
+            clauzeTemp1[totalNou1][j] = clauze[i][j];
+        }
+        if (contineLiteral(clauzeTemp1[totalNou1], nrLiteraliTemp1[totalNou1], -literalAles))
+        {
+            eliminaLiteral(clauzeTemp1[totalNou1], nrLiteraliTemp1[totalNou1], -literalAles);
+            if (nrLiteraliTemp1[totalNou1] == 0)
+            {
+                return false;
+            }
+        }
+        totalNou1++;
+    }
+    if (dpll(clauzeTemp1, nrLiteraliTemp1, totalNou1, valoareMaxima))
+    {
+        return true;
+    }
+
+    int clauzeTemp2[MAX_TOTAL_CLAUZE][MAX_LITERAL_PER_CLAUZA];
+    int nrLiteraliTemp2[MAX_TOTAL_CLAUZE];
+    int totalNou2 = 0;
+    for (int i = 0; i < total; i++)
+    {
+        if (nrLiterali[i] == -1) continue;
+        if (contineLiteral(clauze[i], nrLiterali[i], -literalAles)) continue;
+        nrLiteraliTemp2[totalNou2] = nrLiterali[i];
+        for (int j = 0; j < nrLiterali[i]; j++)
+        {
+            clauzeTemp2[totalNou2][j] = clauze[i][j];
+        }
+        if (contineLiteral(clauzeTemp2[totalNou2], nrLiteraliTemp2[totalNou2], literalAles))
+        {
+            eliminaLiteral(clauzeTemp2[totalNou2], nrLiteraliTemp2[totalNou2], literalAles);
+            if (nrLiteraliTemp2[totalNou2] == 0)
+            {
+                return false;
+            }
+        }
+        totalNou2++;
+    }
+    return dpll(clauzeTemp2, nrLiteraliTemp2, totalNou2, valoareMaxima);
+}
+
+
+int main()
+{
     srand(time(0));
-    nr_clauze = nr_clauze_input;
+    int valoareMaxima, nrClauzeInitiale;
 
-    for (int i = 0; i < nr_clauze; ++i) {
-        clauze[i].nr_literali = rand() % max_literali + 1;
+    cout << "Valoarea maxima de literal: ";
+    cin >> valoareMaxima;
+    cout << "Numarul de clauze initiale: ";
+    cin >> nrClauzeInitiale;
 
-        for (int j = 0; j < clauze[i].nr_literali; ) {
-            int literal = rand() % max_literali + 1;
-            if (rand() % 2) literal = -literal;
-
-            if (!existaDeja(clauze[i], literal) && !areComplementul(clauze[i], literal)) {
-                clauze[i].literalii[j] = literal;
-                ++j;
-            }
-        }
+    if (nrClauzeInitiale > MAX_TOTAL_CLAUZE)
+    {
+        cout << "Numarul de clauze initiale depaseste limita maxima (" << MAX_TOTAL_CLAUZE << ")" << endl;
+        return 1;
     }
-}
 
-int gasesteClauzaUnitara(Clauza clauze[], int nr_clauze) {
-    for (int i = 0; i < nr_clauze; ++i) {
-        if (clauze[i].nr_literali == 1) {
-            return clauze[i].literalii[0];
-        }
-    }
-    return 0;
-}
+    int dimensiuneMaximaClauza = 2 * nrClauzeInitiale;
+    int clauze[MAX_TOTAL_CLAUZE][MAX_LITERAL_PER_CLAUZA];
+    int nrLiterali[MAX_TOTAL_CLAUZE] = {0};
 
-void eliminaPrinClauzaUnitara(Clauza clauze[], int &nr_clauze, int literal) {
-    int idx = 0;
-    for (int i = 0; i < nr_clauze; ++i) {
-        bool satisfacuta = false;
-        for (int j = 0; j < clauze[i].nr_literali; ++j) {
-            if (clauze[i].literalii[j] == literal) {
-                satisfacuta = true;
-                break;
-            }
-        }
-        if (!satisfacuta) {
-            int nr_literali_noi = 0;
-            for (int j = 0; j < clauze[i].nr_literali; ++j) {
-                if (clauze[i].literalii[j] != -literal) {
-                    clauze[i].literalii[nr_literali_noi++] = clauze[i].literalii[j];
-                }
-            }
-            clauze[i].nr_literali = nr_literali_noi;
-            clauze[idx++] = clauze[i];
-        }
-    }
-    nr_clauze = idx;
-}
+    for (int i = 0; i < nrClauzeInitiale; i++)
+    {
+        genereazaClauza(clauze[i], nrLiterali[i], valoareMaxima, dimensiuneMaximaClauza);
 
-int gasesteLiteralPur(Clauza clauze[], int nr_clauze) {
-    int frecventa[MAX_LITERALI * 2 + 1] = {0};
-
-    for (int i = 0; i < nr_clauze; ++i) {
-        for (int j = 0; j < clauze[i].nr_literali; ++j) {
-            int literal = clauze[i].literalii[j];
-            frecventa[MAX_LITERALI + literal]++;
+        if (nrLiterali[i] == 0)
+        {
+            return 1;
         }
     }
 
-    for (int literal = 1; literal <= MAX_LITERALI; ++literal) {
-        if (frecventa[MAX_LITERALI + literal] > 0 && frecventa[MAX_LITERALI - literal] == 0) return literal;
-        if (frecventa[MAX_LITERALI - literal] > 0 && frecventa[MAX_LITERALI + literal] == 0) return -literal;
-    }
-    return 0;
-}
+    auto start = chrono::high_resolution_clock::now();
+    bool rezultatDPLL = dpll(clauze, nrLiterali, nrClauzeInitiale, valoareMaxima);
+    auto end = chrono::high_resolution_clock::now();
+    chrono::duration<double> durata = end - start;
 
-void eliminaClauzeCuLiteral(Clauza clauze[], int &nr_clauze, int literal) {
-    int idx = 0;
-    for (int i = 0; i < nr_clauze; ++i) {
-        bool gasit = false;
-        for (int j = 0; j < clauze[i].nr_literali; ++j) {
-            if (clauze[i].literalii[j] == literal) {
-                gasit = true;
-                break;
-            }
-        }
-        if (!gasit) {
-            clauze[idx++] = clauze[i];
-        }
-    }
-    nr_clauze = idx;
-}
-
-bool aplicaRezolutia(Clauza clauze[], int &nr_clauze) {
-    int indexNou = nr_clauze;
-    const int MAX_ITERATII = 1000;
-    const int MAX_CLAUZE_NOI = 400;
-    int clauzeNoiGenerate = 0;
-
-    for (int iteratii = 0; iteratii < MAX_ITERATII; ++iteratii) {
-        bool aplicat = false;
-        int total = indexNou;
-
-        for (int i = 0; i < total; ++i) {
-            for (int j = i + 1; j < total; ++j) {
-                int nrComplementare = 0;
-                int litI = -1, litJ = -1;
-
-                for (int li = 0; li < clauze[i].nr_literali; ++li) {
-                    for (int lj = 0; lj < clauze[j].nr_literali; ++lj) {
-                        if (clauze[i].literalii[li] == -clauze[j].literalii[lj]) {
-                            nrComplementare++;
-                            litI = li;
-                            litJ = lj;
-                        }
-                    }
-                }
-
-                if (nrComplementare == 1) {
-                    Clauza clauzaNoua;
-                    clauzaNoua.nr_literali = 0;
-
-                    for (int k = 0; k < clauze[i].nr_literali; ++k) {
-                        if (k != litI && !existaDeja(clauzaNoua, clauze[i].literalii[k])) {
-                            clauzaNoua.literalii[clauzaNoua.nr_literali++] = clauze[i].literalii[k];
-                        }
-                    }
-                    for (int k = 0; k < clauze[j].nr_literali; ++k) {
-                        if (k != litJ && !existaDeja(clauzaNoua, clauze[j].literalii[k])) {
-                            clauzaNoua.literalii[clauzaNoua.nr_literali++] = clauze[j].literalii[k];
-                        }
-                    }
-
-                    if (clauzaNoua.nr_literali == 0) return false;
-
-                    bool exista = false;
-                    for (int k = 0; k < indexNou; ++k) {
-                        if (clauze[k].nr_literali == clauzaNoua.nr_literali) {
-                            bool identice = true;
-                            for (int l = 0; l < clauzaNoua.nr_literali; ++l) {
-                                if (!existaDeja(clauze[k], clauzaNoua.literalii[l])) {
-                                    identice = false;
-                                    break;
-                                }
-                            }
-                            if (identice) {
-                                exista = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!exista && indexNou < MAX_CLAUZE && clauzeNoiGenerate < MAX_CLAUZE_NOI) {
-                        clauze[indexNou] = clauzaNoua;
-                        indexNou++;
-                        clauzeNoiGenerate++;
-                        aplicat = true;
-                    }
-                }
-            }
-        }
-
-        if (!aplicat) break;
-    }
-
-    nr_clauze = indexNou;
-    return true;
-}
-
-void afiseazaClauze(Clauza clauze[], int nr_clauze) {
-    for (int i = 0; i < nr_clauze; ++i) {
-        cout << "Clauza " << i + 1 << ": ";
-        if (clauze[i].nr_literali == 0) {
-            cout << "{}";
-        }
-        else {
-            for (int j = 0; j < clauze[i].nr_literali; ++j) {
-                cout << clauze[i].literalii[j] << " ";
-            }
-        }
-        cout << "\n";
-    }
-    cout << "\n";
-}
-
-bool algoritmDP(Clauza clauze[], int &nr_clauze) {
-    while (true) {
-        for (int i = 0; i < nr_clauze; ++i) {
-            if (clauze[i].nr_literali == 0) return false;
-        }
-        if (nr_clauze == 0) return true;
-
-        bool modificat = false;
-        while (true) {
-            int literalUnitar = gasesteClauzaUnitara(clauze, nr_clauze);
-            if (literalUnitar == 0) break;
-            eliminaPrinClauzaUnitara(clauze, nr_clauze, literalUnitar);
-            modificat = true;
-        }
-        if (modificat) continue;
-
-        while (true) {
-            int literalPur = gasesteLiteralPur(clauze, nr_clauze);
-            if (literalPur == 0) break;
-            eliminaClauzeCuLiteral(clauze, nr_clauze, literalPur);
-            modificat = true;
-        }
-        if (modificat) continue;
-
-        int inainte = nr_clauze;
-        if (!aplicaRezolutia(clauze, nr_clauze)) return false;
-        if (nr_clauze == inainte) break;
-    }
-    return true;
-}
-
-int main() {
-    int max_literali, nr_clauze_input;
-    Clauza clauze[MAX_CLAUZE];
-    int nr_clauze;
-
-    cout << "Introduceti numarul de clauze: ";
-    cin >> nr_clauze_input;
-    cout << "Introduceti numarul maxim de literali: ";
-    cin >> max_literali;
-
-    genereazaClauzeAleatoare(clauze, nr_clauze, max_literali, nr_clauze_input);
-
-    auto inceput = high_resolution_clock::now();
-    bool rezultat = algoritmDP(clauze, nr_clauze);
-    auto sfarsit = high_resolution_clock::now();
-    duration<double> durata = sfarsit - inceput;
-
-    cout << "DP: ";
-    if (rezultat)
+    cout << "DPLL: ";
+    if (rezultatDPLL)
         cout << "SAT";
     else
         cout << "UNSAT";
     cout << endl;
-    cout << "Timp executie: " << fixed << setprecision(12) << durata.count() << " secunde\n";
-
+    cout << "Timpul de executie al DPLL: " << fixed << setprecision(12) << durata.count() << " secunde.\n";
     return 0;
 }
